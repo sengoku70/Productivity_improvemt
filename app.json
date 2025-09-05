@@ -3,35 +3,39 @@
     "name": "my-expo-app",
     "slug": "my-expo-app",
     "version": "1.0.0",
-
+    
     "web": {
       "favicon": "./assets/favicon.png"
     },
-
+    
     "experiments": {
       "tsconfigPaths": true
     },
-
+    
     "plugins": [],
-
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-
     "userInterfaceStyle": "light",
-
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
-    "assetBundlePatterns": ["**/*"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
       "supportsTablet": true
     },
     "android": {
-      "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
+      "foregroundImage": "./assets/adaptive-icon.png",
+      "backgroundColor": "#ffffff",
+      "package": "com.bvkr.myexpoapp",
+      "windowSoftInputMode": "adjustResize"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "2cc33d29-4c03-4106-84f9-5ac6c6d5d407"
       }
     }
   }
