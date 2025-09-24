@@ -1,252 +1,124 @@
-import React, { useState } from 'react';
-import { View, Text, Pressable, TextInput, ScrollView } from 'react-native';
-import { AntDesign, Feather } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import React, { useState, useEffect } from "react";
+import { View, Text, Pressable, Platform } from "react-native";
+import DateTimePicker from "@react-native-community/datetimepicker";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as Progress from "react-native-progress";
+import { AntDesign,Feather  } from '@expo/vector-icons';
 
-const Timetable = () => {
-    // syllabus: [{ title: string, subtopics: string[] }]
-    const [syllabus, setSyllabus] = useState([]);
-    const [subjectInput, setSubjectInput] = useState('');
-    const [subtopicInput, setSubtopicInput] = useState('');
-    const [showSubjectInput, setShowSubjectInput] = useState(false);
-    const [selectedSubjectIdx, setSelectedSubjectIdx] = useState(null);
-    const [editingSubtopicIdx, setEditingSubtopicIdx] = useState(null);
+export default function DateProgressBox() {
+  const [goalDate, setGoalDate] = useState(null);
+  const [progress, setProgress] = useState(0);
+  const [daysLeft, setDaysLeft] = useState(null);
+  const [daysPassed, setDaysPassed] = useState(null);
+  const [showPicker, setShowPicker] = useState(false);
 
-    React.useEffect(() => {
-        AsyncStorage.getItem('syllabus').then(data => {
-            if (data) setSyllabus(JSON.parse(data));
-        });
-    }, []);
-
-    const saveSyllabus = async (newSyllabus) => {
-        setSyllabus(newSyllabus);
-        await AsyncStorage.setItem('syllabus', JSON.stringify(newSyllabus));
+  // Load saved date
+  useEffect(() => {
+    const loadDate = async () => {
+      const savedDate = await AsyncStorage.getItem("goalDate");
+      if (savedDate) setGoalDate(new Date(savedDate));
     };
+    loadDate();
+  }, []);
 
-    // Add or edit subject
-    const addOrEditSubject = () => {
-        if (!subjectInput.trim()) return;
-        let updated;
-        if (selectedSubjectIdx !== null) {
-            updated = syllabus.map((item, idx) =>
-                idx === selectedSubjectIdx ? { ...item, title: subjectInput } : item
-            );
-            setSelectedSubjectIdx(null);
-        } else {
-            updated = [...syllabus, { title: subjectInput, subtopics: [] }];
-        }
-        setSubjectInput('');
-        setShowSubjectInput(false);
-        saveSyllabus(updated);
-    };
+  // Update progress whenever date changes
+  useEffect(() => {
+    if (goalDate) calculateProgress(goalDate);
+  }, [goalDate]);
 
-    // Delete subject
-    const deleteSubject = (idx) => {
-        const updated = syllabus.filter((_, i) => i !== idx);
-        saveSyllabus(updated);
-    };
+  const calculateProgress = (date) => {
+    const today = new Date();
+    const startDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    const targetDate = new Date(date);
 
-    // Start editing subject
-    const startEditSubject = (idx) => {
-        setSubjectInput(syllabus[idx].title);
-        setSelectedSubjectIdx(idx);
-        setShowSubjectInput(true);
-    };
+    const totalDays = Math.ceil((targetDate - startDate) / (1000 * 60 * 60 * 24));
+    const passed = Math.max(0, Math.ceil((today - startDate) / (1000 * 60 * 60 * 24)));
+    const remaining = Math.max(0, totalDays - passed);
 
-    // Add or edit subtopic
-    const addOrEditSubtopic = (subjectIdx) => {
-        if (!subtopicInput.trim()) return;
-        let updated = [...syllabus];
-        if (editingSubtopicIdx !== null) {
-            updated[subjectIdx].subtopics[editingSubtopicIdx] = subtopicInput;
-            setEditingSubtopicIdx(null);
-        } else {
-            updated[subjectIdx].subtopics.push(subtopicInput);
-        }
-        setSubtopicInput('');
-        saveSyllabus(updated);
-    };
+    setDaysPassed(passed);
+    setDaysLeft(remaining);
+    setProgress(Math.min(passed / totalDays, 1));
+  };
 
-    // Delete subtopic
-    const deleteSubtopic = (subjectIdx, subIdx) => {
-        let updated = [...syllabus];
-        updated[subjectIdx].subtopics = updated[subjectIdx].subtopics.filter((_, i) => i !== subIdx);
-        saveSyllabus(updated);
-    };
+  const onDateChange = async (event, selectedDate) => {
+    setShowPicker(false);
+    if (selectedDate.getDate() > new Date().getDate()) {
 
-    // Start editing subtopic
-    const startEditSubtopic = (subjectIdx, subIdx) => {
-        setSubtopicInput(syllabus[subjectIdx].subtopics[subIdx]);
-        setSelectedSubjectIdx(subjectIdx);
-        setEditingSubtopicIdx(subIdx);
-    };
-    // Track which subject's subtopics are expanded
-    const [expandedSubjectIdx, setExpandedSubjectIdx] = useState(null);
+      setGoalDate(selectedDate);
+      await AsyncStorage.setItem("goalDate", selectedDate.toISOString());
+    }
+  };
 
-    // Toggle expand/collapse for a subject
-    const toggleExpandSubject = (idx) => {
-        setExpandedSubjectIdx(expandedSubjectIdx === idx ? null : idx);
-        setSelectedSubjectIdx(null);
-        setEditingSubtopicIdx(null);
-        setSubtopicInput('');
-    };
-    return (
-        <View className="flex-1 bg-white pt-[34px] min-h-screen ">
-            <Text className="text-2xl font-bold text-blue-600 m-4">Syllabus</Text>
-            {syllabus.length === 0 && (
-                <Text className="text-blue-600 text-center mt-8">No syllabus added yet.</Text>
-            )}
+  const resetDate = async () => {
+    setGoalDate(null);
+    setProgress(0);
+    setDaysLeft(null);
+    setDaysPassed(null);
+    await AsyncStorage.removeItem("goalDate");
+  };
 
-            <ScrollView className="flex-1">
-                {syllabus.map((subject, idx) => (
-                    <Pressable
-                        key={idx}
-                        onPress={() => toggleExpandSubject(idx)}
-                        className="bg-indigo-100 mx-4 my-2 rounded-lg p-3"
-                    >
-                        <View className="flex-row items-center">
-                            <AntDesign
-                                name={expandedSubjectIdx === idx ? "down" : "right"}
-                                size={18}
-                                color="#2563eb"
-                                style={{ marginRight: 8 }}
-                            />
-                            <Text className="flex-1 text-indigo-900 text-base font-semibold">{subject.title}</Text>
-                            <Pressable
-                                onPress={(e) => {
-                                    e.stopPropagation && e.stopPropagation();
-                                    startEditSubject(idx);
-                                }}
-                                className="mr-3"
-                            >
-                                <Feather name="edit" size={20} color="#2563eb" />
-                            </Pressable>
-                            <Pressable
-                                onPress={(e) => {
-                                    e.stopPropagation && e.stopPropagation();
-                                    deleteSubject(idx);
-                                }}
-                            >
+  return (
+    <View className="overflow-hidden  items-center">
+      {/* Progress Bar */}
+      <Pressable
+        onPress={() => !goalDate && setShowPicker(true)}
+        className="w-full"
+      >
+        <View className="relative items-center px-8">
+          <Progress.Bar
+            progress={goalDate ? progress : 0}
+            width= {347}
+            height={50}
+            color="#3b82f6"   // Tailwind blue-500
+            borderRadius={10}
+            borderWidth={0}
+            unfilledColor="#e5e7eb" // Tailwind gray-200
+          />
 
-                                <AntDesign name="delete" size={20} color="#2563eb" />
-                            </Pressable>
-                        </View>
-                        
-                        {/* Subtopics */}
-                        {expandedSubjectIdx === idx && (
-                            <View className="bg-white ml-[20px] gap-3 rounded-md p-[10px] mt-[20px]">
-                                {subject.subtopics.map((sub, subIdx) => (
-                                    <View key={subIdx} className="flex-row items-center">
-                                        <Text className="flex-1 text-indigo-800">{sub}</Text>
-                                        <Pressable
-                                            onPress={(e) => {
-                                                e.stopPropagation && e.stopPropagation();
-                                                startEditSubtopic(idx, subIdx);
-                                            }}
-                                            className="mr-3"
-                                        >
-                                            <Feather name="edit" size={18} color="#2563eb" />
-                                        </Pressable>
-                                        <Pressable
-                                            onPress={(e) => {
-                                                e.stopPropagation && e.stopPropagation();
-                                                deleteSubtopic(idx, subIdx);
-                                            }}
-                                        >
-                                            <AntDesign name="delete" size={18} color="#2563eb" />
-                                        </Pressable>
-                                    </View>
-                                ))}
-                                {/* Add/Edit subtopic input */}
-                                {selectedSubjectIdx === idx && (
-                                    <View className="flex-row items-center mt-2">
-                                        <TextInput
-                                            value={subtopicInput}
-                                            onChangeText={setSubtopicInput}
-                                            placeholder="Add subtopic..."
-                                            className="flex-1 bg-indigo-50 rounded-xl px-3 text-indigo-900 text-base"
-                                            placeholderTextColor="#2563eb"
-                                        />
-                                        <Pressable
-                                            onPress={() => addOrEditSubtopic(idx)}
-                                            className="ml-2 bg-blue-600 rounded-full p-2 justify-center items-center"
-                                        >
-                                            <AntDesign name={editingSubtopicIdx !== null ? "check" : "plus"} size={18} color="#fff" />
-                                        </Pressable>
-                                    </View>
-                                )}
-                                {/* Add subtopic button */}
-                                {selectedSubjectIdx !== idx && (
-                                    <Pressable
-                                        onPress={(e) => {
-                                            e.stopPropagation && e.stopPropagation();
-                                            // Toggle subtopic input for this subject
-                                            if (selectedSubjectIdx === idx) {
-                                                setSelectedSubjectIdx(null);
-                                                setEditingSubtopicIdx(null);
-                                                setSubtopicInput('');
-                                            } else {
-                                                setSelectedSubjectIdx(idx);
-                                                setEditingSubtopicIdx(null);
-                                                setSubtopicInput('');
-                                            }
-                                        }}
-                                        className="mt-2 ml-4"
-                                    >
-                                        <Text className="text-blue-600">
-                                            {selectedSubjectIdx === idx ? "- Cancel" : "+ Add subtopic"}
-                                        </Text>
-                                    </Pressable>
-                                )}
-                            </View>
-                        )}
-                    </Pressable>
-                ))}
-            </ScrollView>
+          {/* Overlay Content */}
+          <View className="absolute inset-0 flex justify-center items-center">
+            {!goalDate ? (
+              <>
+              <Text className="text-gray-600 font-semibold"><Feather name="target" size={30}/></Text>
+              <Text className="text-gray-600 font-semibold"> Select goal Date</Text>
+              </>
+            ) : (
+              <View className="items-center">
+                <Text className="text-sm font-semibold text-black">
+                  {(progress * 100).toFixed(1)}% passed
+                </Text>
+                <Text className="text-xs text-gray-700 mb-1">
+                  {daysPassed} {daysPassed >1 ? "days" : "day"} passed | {daysLeft} left
+                </Text>
 
-            {/* Add/Edit subject input (shown only when showSubjectInput is true) */}
-            {showSubjectInput && (
+                {/* Reset Button */}
                 
-                    <View className="absolute bottom-96 right-6 left-6 flex-row items-center bg-white rounded-xl shadow-2xl p-2">
-                        <TextInput
-                            value={subjectInput}
-                        onChangeText={setSubjectInput}
-                        placeholder="Subject title..."
-                        className="flex-1 bg-indigo-100 rounded-xl px-4 text-indigo-900 text-base"
-                        placeholderTextColor="#2563eb"
-                    />
-                    <Pressable
-                        onPress={addOrEditSubject}
-                        className="ml-2 bg-blue-600 rounded-full p-2 justify-center items-center"
-                    >
-                        <AntDesign name={selectedSubjectIdx !== null ? "check" : "plus"} size={24} color="#fff" />
-                    </Pressable>
-                </View>
-                
+              </View>
             )}
-
-            {/* Add subject button */}
-            {!showSubjectInput && (
-                <Pressable
-                    onPress={() => {
-                        // Toggle subject input
-                        if (showSubjectInput) {
-                            setShowSubjectInput(false);
-                            setSubjectInput('');
-                            setSelectedSubjectIdx(null);
-                        } else {
-                            setShowSubjectInput(true);
-                            setSubjectInput('');
-                            setSelectedSubjectIdx(null);
-                        }
-                    }}
-                    className="absolute bottom-0 right-6 bg-blue-600 rounded-full p-4 shadow-lg"
+            {goalDate && 
+            <Pressable
+                  onPress = {resetDate}
+                  className="absolute left-8 flex justify-center items-center p-2 bg-red-500 h-[40px] w-[40px] rounded-full"
                 >
-                    <AntDesign name={showSubjectInput ? "close" : "plus"} size={24} color="#fff" />
+                  <Text className="text-white text-xs font-semibold">
+                    Reset
+                  </Text>
                 </Pressable>
-            )}
+              }
+          </View>
         </View>
-    );
-};
+      </Pressable>
 
-export default Timetable;
+      {/* Date Picker */}
+      {showPicker && (
+        <DateTimePicker
+          value={goalDate || new Date()}
+          mode="date"
+          display={Platform.OS === "ios" ? "spinner" : "default"}
+          minimumDate={new Date()}
+          onChange={onDateChange}
+        />
+      )}
+    </View>
+  );
+}

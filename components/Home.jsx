@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, TextInput, ScrollView, Modal,Pressable} from 'react-native';
+import { View, Text, TouchableOpacity, TextInput, ScrollView, Modal,Pressable,Animated, Easing} from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AntDesign,Feather  } from '@expo/vector-icons';
+import Timetable from './Timetable';
 
 
 // Helper to generate random light vibrant colors
@@ -10,7 +11,7 @@ const getRandomColor = () => {
     return `hsl(${hue}, 90%, 80%)`;
 };
 
-// Helper to generate random note size
+
 
 
 const NOTES_KEY = 'STICKY_NOTES';
@@ -18,41 +19,46 @@ const NOTES_KEY = 'STICKY_NOTES';
 
 export default function Home() {
     const [notes, setNotes] = useState([]);
-    const [modalVisible, setModalVisible] = useState(false);
+    const [modalVisible, setModalVisible] = useState(null); 
     const [noteText, setNoteText] = useState('');
     const [Rdata, setRdata] = useState('No routine set for this hour');
     const [today, setToday] = useState('0');
+    const [datetoday,setdatetoday] = useState();
     const [question, setQuestion] = useState('0');
     const [Xp, setXp] = useState(0);
-   
-    let date = 1;
+    const [editingNoteId, setEditingNoteId] = useState(null);
     
     
+    //////////////////////////////
     
-
+        
     const incxp = () => {
+        if(datetoday == new Date().getDate()){
+            setToday(prev => parseInt(prev) + 1);
+        }else{
+            setToday(0);
+        }
+        
+        setdatetoday(new Date().getDate()) 
         setQuestion(prev => parseInt(prev) + 1);
-        setToday(prev => parseInt(prev) + 1);
-        const newquestion = question;
-        const newToday = question ;
+       
         let newXp = 0;
-        if (newToday < 30) {
+        if (today < 30) {
             newXp = Xp + 4;
 
-        }else if(newToday < 40 && newToday >= 30   ) {
+        }else if(today < 40 && today >= 30   ) {
             newXp = Xp + 5;
             
         }else{
             newXp = Xp + 6;
 
         }
-        
         setXp(newXp);
+
+    }
+
     
-       
-
-    };
-
+////////////////////////////////////////////////////////
     React.useEffect(() => {
         
         let datetoday = new Date().getDate();
@@ -61,7 +67,7 @@ export default function Home() {
                 const storedToday = await AsyncStorage.getItem('today');
                 const storedQuestion = await AsyncStorage.getItem('question');
                 const storedXp = await AsyncStorage.getItem('Xp');
-                if (storedToday !== null && date == datetoday) setToday(storedToday);
+                if (storedToday !== null) setToday(storedToday);
                 if (storedQuestion !== null) setQuestion(storedQuestion);
                 if (storedXp !== null) setXp(parseInt(storedXp));
             } catch (e) {
@@ -69,13 +75,14 @@ export default function Home() {
             }
         };
         loadData();
-        date = datetoday;
+        
     }, []);
-
+/////////////////////////////////////////////////////////////////////////
     React.useEffect(() => {
         
         const saveData = async () => {
             try {
+                
                 await AsyncStorage.setItem('today', today.toString());
                 await AsyncStorage.setItem('question', question.toString());
                 await AsyncStorage.setItem('Xp', Xp.toString());
@@ -87,7 +94,7 @@ export default function Home() {
     }, [today, question, Xp]);
       
    
-    // Load notes from AsyncStorage
+    //////////////////// Load notes from AsyncStorage//////////////////////////////
     useEffect(() => {
         (async () => {
             const saved = await AsyncStorage.getItem(NOTES_KEY);
@@ -106,19 +113,19 @@ export default function Home() {
     };
 
     const addNote = () => {
-        if (!noteText.trim()) return;
+        
        
             const color = getRandomColor();
             const newNote = {
-            id: Date.now().toString(),
-            text: noteText,
-            color,
-            
-        };
+                id: Date.now().toString(),
+                text: noteText.trim(),
+                color,
+            };
         const updatedNotes = [newNote, ...notes];
-        saveNotes(updatedNotes);
         setNoteText('');
-        setModalVisible(false);
+        saveNotes(updatedNotes);
+        setEditingNoteId(newNote.id);
+        
     };
 
     // Remove note by id
@@ -129,52 +136,46 @@ export default function Home() {
 
     // Split notes into two columns based on index
     const leftNotes = notes.filter((_, idx) => idx % 2 === 0);
-    const rightNotes = notes.filter((_, idx) => idx % 2 === 1);
+    const rightNotes = notes.filter((_, idx) => idx % 2 === 1) ;
 
-    // State for editing notes
-    const [editingNoteId, setEditingNoteId] = useState(null);
-    const [editingNoteText, setEditingNoteText] = useState('');
-
-    // Start editing a note
-    const startEditNote = (note) => {
-        setEditingNoteId(note.id);
-        setEditingNoteText(note.text);
-        setModalVisible(true);
-    };
+  
 
     // Save edited note
     const saveEditedNote = () => {
+        
         const updatedNotes = notes.map(note =>
-            note.id === editingNoteId ? { ...note, text: editingNoteText } : note
+            note.id === editingNoteId ? { ...note, text: noteText } : note
         );
         saveNotes(updatedNotes);
         setEditingNoteId(null);
-        setEditingNoteText('');
-        setModalVisible(false);
+        setNoteText('');
+        
+       
     };
 
     return (
-        <View className="flex-1 pt-12 bg-white">
+        <View className="flex-1 pt-12 ">
             {/* Floating Add Note Button */}
             <TouchableOpacity
-                className="absolute z-10 bg-yellow-300 h-16 w-16 justify-center items-center rounded-2xl bottom-28 right-3 shadow-lg"
-                onPress={() => {
-                    setEditingNoteId(null);
-                    setNoteText('');
-                    setModalVisible(true);
+                className="absolute z-10 bg-gray-300 border-blue-500 border-[3px] h-16 w-16 justify-center items-center rounded-full bottom-28 right-3 shadow-lg"
+                onPress={() => { 
+                    addNote();
+                    
                 }}
             >
                 <AntDesign name="plus" size={36} color="black" />
             </TouchableOpacity>
-
+            <View className='w-screen'><Timetable/></View>
             <ScrollView
-                className="flex-1 h-screen"
+                className="flex-1 h-screen "
                 contentContainerStyle={{
                     flexDirection: 'row',
                     padding: 8,
-                    backgroundColor: 'black'
+                    
                 }}
             >
+
+                
                 {/* Left Column */}
                 <View className="w-1/2">
                     {/* Stats Card */}
@@ -202,14 +203,14 @@ export default function Home() {
                         <TouchableOpacity
                             key={note.id}
                             onPress={() => {
-                                setEditingNoteId(note.id);
-                                setEditingNoteText(note.text);
-                                setModalVisible(true);
+                               
+                                setModalVisible(note.id); 
+                             
                             }}
                             activeOpacity={0.8}
                         >
                             <View
-                                className="m-2 rounded-2xl p-3 max-h-44 w-[92%] justify-center shadow"
+                                className="m-2 rounded-2xl p-3 max-h-36 w-[92%] justify-center shadow"
                                 style={{ backgroundColor: note.color }}
                             >
                                 <View className="flex-col justify-between items-start h-full">
@@ -223,9 +224,11 @@ export default function Home() {
                                         </TouchableOpacity>
                                         <TouchableOpacity
                                             onPress={() => {
-                                                setEditingNoteId(note.id);
-                                                setEditingNoteText(note.text);
-                                                setModalVisible(true);
+                                                setNoteText(note.text);
+                                                setEditingNoteId(note.id);    
+                                                
+                                                
+                                                
                                             }}
                                             className="mb-2 ml-2"
                                             accessibilityLabel="Edit note"
@@ -256,9 +259,8 @@ export default function Home() {
                         <TouchableOpacity
                             key={note.id}
                             onPress={() => {
-                                setEditingNoteId(note.id);
-                                setEditingNoteText(note.text);
-                                setModalVisible(true);
+                  
+                                setModalVisible(note.id);
                             }}
                             activeOpacity={0.8}
                         >
@@ -278,8 +280,9 @@ export default function Home() {
                                         <TouchableOpacity
                                             onPress={() => {
                                                 setEditingNoteId(note.id);
-                                                setEditingNoteText(note.text);
-                                                setModalVisible(true);
+                                                setNoteText(note.text);
+                                                
+                                               
                                             }}
                                             className="mb-2 ml-2"
                                             accessibilityLabel="Edit note"
@@ -296,49 +299,44 @@ export default function Home() {
             </ScrollView>
 
             {/* Note View Modal */}
+
+
+
+
+
             <Modal
-                visible={modalVisible && editingNoteId !== null}
+                visible={modalVisible !== null}
                 transparent
                 animationType="fade"
                 onRequestClose={() => {
-                    setModalVisible(false);
+                    setModalVisible(null);
                     setEditingNoteId(null);
-                    setEditingNoteText('');
+   
                 }}
             >
                 <View className="flex-1 bg-black/50 justify-center items-center">
                     <View
                         className="w-4/5 max-w-[380px] min-w-[320px] max-h-[70%] bg-white rounded-3xl p-5 shadow-lg"
                         style={{
-                            backgroundColor: notes.find(n => n.id === editingNoteId)?.color || '#fff',
+                            backgroundColor: notes.find(n => n.id === modalVisible)?.color || '#fff',
                         }}
                     >
                         <ScrollView className="max-h-72">
                             <Text className="text-lg text-gray-900 mb-4">
-                                {notes.find(n => n.id === editingNoteId)?.text}
+                                {notes.find(n => n.id === modalVisible)?.text}
                             </Text>
                         </ScrollView>
                         <View className="flex-row justify-end mt-4">
                             <TouchableOpacity
-                                className="bg-red-400 px-4 py-2 rounded-xl mr-2"
+                                className="border-[1px] border-white px-4 py-2 rounded-xl mr-2"
                                 onPress={() => {
-                                    setModalVisible(false);
-                                    setEditingNoteId(null);
-                                    setEditingNoteText('');
+                                    setModalVisible(null);
+   
                                 }}
                             >
-                                <Text className="text-white font-bold">Close</Text>
+                                <Text className="text-white  font-bold">Close</Text>
                             </TouchableOpacity>
-                            <TouchableOpacity
-                                className="bg-blue-600 px-4 py-2 rounded-xl"
-                                onPress={() => {
-                                    setModalVisible(false);
-                                    setEditingNoteId(null);
-                                    setEditingNoteText('');
-                                }}
-                            >
-                                <Text className="text-white font-bold">OK</Text>
-                            </TouchableOpacity>
+                            
                         </View>
                     </View>
                 </View>
@@ -346,7 +344,7 @@ export default function Home() {
 
             {/* Add/Edit Note Modal */}
             <Modal
-                visible={modalVisible && editingNoteId === null}
+                visible={editingNoteId !== null}
                 transparent
                 animationType="slide"
             >
@@ -361,15 +359,48 @@ export default function Home() {
                             textAlignVertical="top"
                         />
                         <View className="flex-row justify-between">
+
+
                             <TouchableOpacity
                                 className="bg-green-600 px-4 py-2 rounded-xl min-w-[48%] items-center"
-                                onPress={addNote}
-                            >
+                                onPress={() => {
+                                    if(noteText.trim() != ''){
+                                     console.log("note: " ,noteText);
+                                     saveEditedNote()
+                                     setEditingNoteId(null);
+                                     setNoteText('');
+                                    }
+                                 } }
+                              >
+                             
                                 <Text className="text-white font-bold">Save</Text>
                             </TouchableOpacity>
+
+
+
                             <TouchableOpacity
                                 className="bg-red-400 px-4 py-2 rounded-xl min-w-[48%] items-center"
-                                onPress={() => setModalVisible(false)}
+                                onPress={() => {
+                                     const textinnote =  notes.find(note => note.id === editingNoteId)?.text || "";
+                                   
+                                    if(noteText.trim()=='' && textinnote == ''){
+                                        removeNote(editingNoteId);
+                                        setEditingNoteId(null);
+
+                                        
+                                    }else{ 
+                                        
+                                        setNoteText(notes.find(note => note.id === editingNoteId)?.Text || "")
+                                        //console.log("cancel when note is not empty:",notes.find(note => note.id === editingNoteId)?.text || "", " editing noteid",editingNoteId)
+                                        if(textinnote === ''){
+                                           removeNote(editingNoteId);
+                                        }
+                                        setEditingNoteId(null);
+                                        setNoteText('');
+                                      
+                                    }
+                                }
+                                }
                             >
                                 <Text className="text-white font-bold">Cancel</Text>
                             </TouchableOpacity>

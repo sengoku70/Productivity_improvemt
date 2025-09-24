@@ -1,324 +1,252 @@
-import React,{useState} from 'react';
-import {View, Text, Pressable,TextInput,ScrollView } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, Pressable, TextInput, ScrollView } from 'react-native';
 import { AntDesign, Feather } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+const Timetable = () => {
+    // syllabus: [{ title: string, subtopics: string[] }]
+    const [syllabus, setSyllabus] = useState([]);
+    const [subjectInput, setSubjectInput] = useState('');
+    const [subtopicInput, setSubtopicInput] = useState('');
+    const [showSubjectInput, setShowSubjectInput] = useState(false);
+    const [selectedSubjectIdx, setSelectedSubjectIdx] = useState(null);
+    const [editingSubtopicIdx, setEditingSubtopicIdx] = useState(null);
 
-
-const Syllabus = () => {
-
-const [syllabusarray, setSyllabusarray] = useState([]);
-const [subtopicarray, setSubtopicArray] = useState([]);
-const [syllabusName,setSyllabusName] = useState('');
-const [subtopicName,setSubtopicName] = useState('');
-const [ModalVisible, setmModalVisible] = useState(false);
-const [editmode, seteditmode] = useState();
-const [showtopics, Setshowtopics] = useState(false);
-const [edittopic, setedittopic] = useState();
-
-const handleAddSyllabus = () => {
-    const arr = subtopicName.split(',').map(s => s.trim()).filter(s => s !== '');
-    setSyllabusarray(prev => [...prev, syllabusName]);
-    setSubtopicArray(prev => [...prev, arr]);
-    console.log('subtopic array', subtopicarray);
-    setSyllabusName(''); 
-    setSubtopicName('');
-    
-//     console.log("syllabus array", syllabusarray);
-//     console.log("subtopic array", subtopicarray);
-};
-
-const handleDeleteSyllabus = (index) => {
-  setSyllabusarray(prev => {
-    const copy = [...prev];
-    copy.splice(index, 1);
-    return copy;
-  });
-
-  setSubtopicArray(prev => {
-    const copy = [...prev];
-    copy.splice(index, 1);
-    return copy;
-  });
-};
-
-
-const delsubtopic = (i, j) => {
-    setSubtopicArray(prev => 
-        prev.map((subtopics, idx) => 
-            idx === i ? subtopics.filter((_, k) => k !== j) : subtopics
-        )
-    );
-  
-};
-
-const editsyllbus = (i) => {
-    setSyllabusarray(prev => 
-        prev.map((syllabus, idx) => idx === i ? syllabusName : syllabus)
-    );
-    setSyllabusName('');
-    console.log('editsyllabus');
-};
-
-const edittopicfunc = (i, j) => {
-    setSubtopicArray(prev =>
-        prev.map((subtopics, idx) =>
-            idx === i
-                ? subtopics.map((topic, k) => k === j ? subtopicName : topic)
-                : subtopics
-        )
-    );
-    setSubtopicName('');
-    console.log('editsubtopic');
-};
-
- React.useEffect(() => {
-        const saveData = async () => {
-          console.log('Saving syllabus data',await AsyncStorage.getItem('syllabus'));
-          console.log('Saving subtopic data',await AsyncStorage.getItem('subtopic'));
-            try {
-                await AsyncStorage.setItem('syllabus', JSON.stringify(syllabusarray));
-                await AsyncStorage.setItem('subtopic', JSON.stringify(subtopicarray));
-            } catch (e) {
-                console.log('Failed to save syllabus data', e);
-            }
-        };
-        saveData();
-    }, [syllabusarray,subtopicarray]);
-
-
-
-  React.useEffect(() => {
-        const loadData = async () => {
-            console.log('Loading syllabus data', await AsyncStorage.getItem('syllabus'));
-            console.log('Loading subtopic data', await AsyncStorage.getItem('subtopic'));
-            
-            try {  
-                const syllabus = await AsyncStorage.getItem('syllabus');
-                const subtopic = await AsyncStorage.getItem('subtopic');
-                if (syllabus && subtopic) {
-                    setSyllabusarray(prev=>[...prev,...JSON.parse(syllabus)]);
-                    setSubtopicArray(prev=>[...prev,...JSON.parse(subtopic)]);
-                }
-            } catch (e) {
-                console.log('Failed to load syllabus data', e);
-            }
-        };
-        loadData();
+    React.useEffect(() => {
+        AsyncStorage.getItem('syllabus').then(data => {
+            if (data) setSyllabus(JSON.parse(data));
+        });
     }, []);
 
-    
-   
+    const saveSyllabus = async (newSyllabus) => {
+        setSyllabus(newSyllabus);
+        await AsyncStorage.setItem('syllabus', JSON.stringify(newSyllabus));
+    };
 
+    // Add or edit subject
+    const addOrEditSubject = () => {
+        if (!subjectInput.trim()) return;
+        let updated;
+        if (selectedSubjectIdx !== null) {
+            updated = syllabus.map((item, idx) =>
+                idx === selectedSubjectIdx ? { ...item, title: subjectInput } : item
+            );
+            setSelectedSubjectIdx(null);
+        } else {
+            updated = [...syllabus, { title: subjectInput, subtopics: [] }];
+        }
+        setSubjectInput('');
+        setShowSubjectInput(false);
+        saveSyllabus(updated);
+    };
 
-return (
-        <ScrollView className="flex-1 h-screen">
-            {/* Combined Syllabus and Subtopics Section */}
+    // Delete subject
+    const deleteSubject = (idx) => {
+        const updated = syllabus.filter((_, i) => i !== idx);
+        saveSyllabus(updated);
+    };
 
+    // Start editing subject
+    const startEditSubject = (idx) => {
+        setSubjectInput(syllabus[idx].title);
+        setSelectedSubjectIdx(idx);
+        setShowSubjectInput(true);
+    };
 
-            <View className="flex p-4 h-screen mt-[60px]">
-                <Text className="text-2xl font-bold mb-4 overflow-visible text-white"> Syllabus </Text>
-                <View>
-                    {
-                        syllabusarray.map((item, i) => (
-                            
-                            <Pressable onPress={() => {Setshowtopics(prev => (prev === i ? null : i))}} key={i}  className={`mb-2 flex flex-col items-end bg-white px-4 py-[9px] rounded-md ${showtopics==i?" h-fit pb-[50px]":"h-[50px] overflow-hidden"}`}>
-                                <View className={`flex flex-row items-center w-full `}>
-                                <AntDesign name='book' size={30}/>
-                                { editmode === i ? <TextInput
-                                    value={syllabusName}
-                                    onChangeText={(text) => {setSyllabusName(text)}}
-                                    className="border border-gray-300 rounded-md outline-none w-[70%]"
-                                /> : <Text className="text-black ml-[10px]">{item}</Text>
-                                
-                                }
-                                
-                                
-                                <View className="flex flex-row items-center gap-5 ml-auto">
-                                    
-                                    {editmode === i ?
-                                    <Pressable onPress={()=>{editsyllbus(i),seteditmode()}} >
-                                        <AntDesign name="check" size={20} color="blue" />
-                                     </Pressable>
-                                     :
-                                    <Pressable onPress={()=>{seteditmode(i)}} >
-                                        <AntDesign name="edit" size={20} color="black" />
-                                     </Pressable>
-                                    }   
+    // Add or edit subtopic
+    const addOrEditSubtopic = (subjectIdx) => {
+        if (!subtopicInput.trim()) return;
+        let updated = [...syllabus];
+        if (editingSubtopicIdx !== null) {
+            updated[subjectIdx].subtopics[editingSubtopicIdx] = subtopicInput;
+            setEditingSubtopicIdx(null);
+        } else {
+            updated[subjectIdx].subtopics.push(subtopicInput);
+        }
+        setSubtopicInput('');
+        saveSyllabus(updated);
+    };
 
+    // Delete subtopic
+    const deleteSubtopic = (subjectIdx, subIdx) => {
+        let updated = [...syllabus];
+        updated[subjectIdx].subtopics = updated[subjectIdx].subtopics.filter((_, i) => i !== subIdx);
+        saveSyllabus(updated);
+    };
 
-                                <Pressable onPress={()=>{handleDeleteSyllabus(item)}}>
-                                    <AntDesign name="delete" size={20} color="black" />
-                                </Pressable>
-                                </View>
-                                </View>
-                                {
-                                    showtopics === i && subtopicarray[i] && subtopicarray[i].length > 0 ? (
-                                    <View className='flex flex-col rounded-md overflow-hidden items-start w-[90%] mt-4'>
+    // Start editing subtopic
+    const startEditSubtopic = (subjectIdx, subIdx) => {
+        setSubtopicInput(syllabus[subjectIdx].subtopics[subIdx]);
+        setSelectedSubjectIdx(subjectIdx);
+        setEditingSubtopicIdx(subIdx);
+    };
+    // Track which subject's subtopics are expanded
+    const [expandedSubjectIdx, setExpandedSubjectIdx] = useState(null);
 
+    // Toggle expand/collapse for a subject
+    const toggleExpandSubject = (idx) => {
+        setExpandedSubjectIdx(expandedSubjectIdx === idx ? null : idx);
+        setSelectedSubjectIdx(null);
+        setEditingSubtopicIdx(null);
+        setSubtopicInput('');
+    };
+    return (
+        <View className="flex-1 pt-[34px] min-h-screen ">
+            <Text className="text-2xl font-bold text-blue-600 m-4">Syllabus</Text>
+            {syllabus.length === 0 && (
+                <Text className="text-blue-600 text-center mt-8">No syllabus added yet.</Text>
+            )}
 
-                                        {subtopicarray[i].map((subtopic, j) => (
-                                            <View className='bg-gray-200 px-[5px] justify-between border-b-[1px] border-gray-2 h-[40px] w-full flex flex-row items-center gap-2' key={j}>
-                                                { edittopic === j ? 
-                                                <TextInput
-                                                    value={subtopicName}
-                                                    onChangeText={(text) => {setSubtopicName(text)}}
-                                                    className="border border-gray-300 rounded-md w-[70%]"
-
-                                                /> :<Text key={j} className=' text-black'>{subtopic}</Text>
-                                                }
-
-
-                                                <View className='flex flex-row items-center gap-5'>
-                                                {edittopic === j ?
-                                                    <Pressable onPress={()=>{edittopicfunc(i,j),setedittopic()}} >
-                                                        <AntDesign name="check" size={16} color="blue" />
-                                                    </Pressable>
-                                                    :
-                                                    <Pressable onPress={()=>{setedittopic(j)}} >
-                                                        <AntDesign name="edit" size={16} color="black" />
-                                                    </Pressable>
-                                                    } 
-                                                <Pressable onPress={() => {delsubtopic(i,j)}}>
-                                                    <AntDesign name='close' size={16}/>
-                                                </Pressable> 
-                                            
-                                            </View>
-                                            </View>
-                                            
-                                        ))}
-                                        
-                                    </View>
-                                ) : null
-                                }
-                            
+            <ScrollView className="flex-1">
+                {syllabus.map((subject, idx) => (
+                    <Pressable
+                        key={idx}
+                        onPress={() => toggleExpandSubject(idx)}
+                        className="bg-indigo-100 mx-4 my-2 rounded-lg p-3"
+                    >
+                        <View className="flex-row items-center">
+                            <AntDesign
+                                name={expandedSubjectIdx === idx ? "down" : "right"}
+                                size={18}
+                                color="#2563eb"
+                                style={{ marginRight: 8 }}
+                            />
+                            <Text className="flex-1 text-indigo-900 text-base font-semibold">{subject.title}</Text>
                             <Pressable
-                                        className="absolute bottom-5 mr-[85px] bg-blue-600 rounded-full h-[30px] w-[30px] shadow-emerald-900 flex justify-center items-center "
-                                        onPress={() => {
-                                            Setshowtopics(prev => i);
-                                            setedittopic(subtopicarray[i].length);
-                                            subtopicarray[i].push(`untitled${i}`);
-                                            edittopicfunc(i, subtopicarray[i].length);
-                                            
-                                            
-                                        }}>
-                                        
-                                        <Text className="text-white font-bold text-center"><AntDesign name="plus" size={30}/></Text>
+                                onPress={(e) => {
+                                    e.stopPropagation && e.stopPropagation();
+                                    startEditSubject(idx);
+                                }}
+                                className="mr-3"
+                            >
+                                <Feather name="edit" size={20} color="#2563eb" />
                             </Pressable>
+                            <Pressable
+                                onPress={(e) => {
+                                    e.stopPropagation && e.stopPropagation();
+                                    deleteSubject(idx);
+                                }}
+                            >
+
+                                <AntDesign name="delete" size={20} color="#2563eb" />
                             </Pressable>
-                        ))
-                    }
+                        </View>
+                        
+                        {/* Subtopics */}
+                        {expandedSubjectIdx === idx && (
+                            <View className="bg-white ml-[20px] gap-3 rounded-md p-[10px] mt-[20px]">
+                                {subject.subtopics.map((sub, subIdx) => (
+                                    <View key={subIdx} className="flex-row items-center">
+                                        <Text className="flex-1 text-indigo-800">{sub}</Text>
+                                        <Pressable
+                                            onPress={(e) => {
+                                                e.stopPropagation && e.stopPropagation();
+                                                startEditSubtopic(idx, subIdx);
+                                            }}
+                                            className="mr-3"
+                                        >
+                                            <Feather name="edit" size={18} color="#2563eb" />
+                                        </Pressable>
+                                        <Pressable
+                                            onPress={(e) => {
+                                                e.stopPropagation && e.stopPropagation();
+                                                deleteSubtopic(idx, subIdx);
+                                            }}
+                                        >
+                                            <AntDesign name="delete" size={18} color="#2563eb" />
+                                        </Pressable>
+                                    </View>
+                                ))}
+                                {/* Add/Edit subtopic input */}
+                                {selectedSubjectIdx === idx && (
+                                    <View className="flex-row items-center mt-2">
+                                        <TextInput
+                                            value={subtopicInput}
+                                            onChangeText={setSubtopicInput}
+                                            placeholder="Add subtopic..."
+                                            className="flex-1 bg-indigo-50 rounded-xl px-3 text-indigo-900 text-base"
+                                            placeholderTextColor="#2563eb"
+                                        />
+                                        <Pressable
+                                            onPress={() => addOrEditSubtopic(idx)}
+                                            className="ml-2 bg-blue-600 rounded-full p-2 justify-center items-center"
+                                        >
+                                            <AntDesign name={editingSubtopicIdx !== null ? "check" : "plus"} size={18} color="#fff" />
+                                        </Pressable>
+                                    </View>
+                                )}
+                                {/* Add subtopic button */}
+                                {selectedSubjectIdx !== idx && (
+                                    <Pressable
+                                        onPress={(e) => {
+                                            e.stopPropagation && e.stopPropagation();
+                                            // Toggle subtopic input for this subject
+                                            if (selectedSubjectIdx === idx) {
+                                                setSelectedSubjectIdx(null);
+                                                setEditingSubtopicIdx(null);
+                                                setSubtopicInput('');
+                                            } else {
+                                                setSelectedSubjectIdx(idx);
+                                                setEditingSubtopicIdx(null);
+                                                setSubtopicInput('');
+                                            }
+                                        }}
+                                        className="mt-2 ml-4"
+                                    >
+                                        <Text className="text-blue-600">
+                                            {selectedSubjectIdx === idx ? "- Cancel" : "+ Add subtopic"}
+                                        </Text>
+                                    </Pressable>
+                                )}
+                            </View>
+                        )}
+                    </Pressable>
+                ))}
+            </ScrollView>
+
+            {/* Add/Edit subject input (shown only when showSubjectInput is true) */}
+            {showSubjectInput && (
+                
+                    <View className="absolute bottom-96 right-6 left-6 flex-row items-center bg-white rounded-xl shadow-2xl p-2">
+                        <TextInput
+                            value={subjectInput}
+                        onChangeText={setSubjectInput}
+                        placeholder="Subject title..."
+                        className="flex-1 bg-indigo-100 rounded-xl px-4 text-indigo-900 text-base"
+                        placeholderTextColor="#2563eb"
+                    />
+                    <Pressable
+                        onPress={addOrEditSubject}
+                        className="ml-2 bg-blue-600 rounded-full p-2 justify-center items-center"
+                    >
+                        <AntDesign name={selectedSubjectIdx !== null ? "check" : "plus"} size={24} color="#fff" />
+                    </Pressable>
                 </View>
                 
-            </View>
-            {/* Button to open model box */}
+            )}
 
-            {ModalVisible && (
-
-                <View className="absolute top-0 left-0 right-0 bottom-0 bg-violet-900/50  flex items-center gap-2 justify-center">
-                    <View className="bg-white p-[10px] rounded-lg w-[85%] flex items-center gap-2">
-                        <Text className="text-lg font-bold">Add Syllabus</Text>
-                        <TextInput          
-                            placeholder="Syllabus Name"
-                            value={syllabusName}
-                            onChangeText={setSyllabusName}
-                            className="border border-gray-300 w-full rounded-md "      
-
-                        />
-                        <View className='flex flex-row items-center h-40px overflow-hidden'>
-                        <TextInput          
-                            placeholder="subtopic Name"
-                            value={subtopicName}
-                            onChangeText={setSubtopicName}
-                            className="border border-gray-300 rounded-l-md w-[90%] h-[40px]"      
-
-                        />
-
-                        <Pressable className='W-[40%] bg-green-400 rounded-r-md w-[10%] h-[40px] flex items-center justify-center'>
-                            <Text ><AntDesign  name='plus' size={30}/></Text>
-                        </Pressable>
-
-                        </View>
-
-
-
-                        <View className='flex flex-row w-full justify-between'>
-                        <Pressable  
-                            onPress={()=>(handleAddSyllabus(), setmModalVisible(false))}
-                            className="bg-blue-600 rounded-md flex flex-row items-center justify-center h-[40px] w-[48%]"
-                        >
-                            <Text className="text-white text-center">Add Syllabus</Text>
-                        </Pressable>
-                        <Pressable  
-                            onPress={() => setmModalVisible(false)}
-                            className="bg-gray-300 rounded-md flex flex-row items-center justify-center h-[40px] w-[48%]"
-                        >
-                            <Text className="text-black text-center">Close</Text>
-                        </Pressable>
-                        </View>
-                    </View>
-                </View>
-            )
-
-            }
-            {/* print all the async data saved  */}
-            <Pressable onPress={()=>{
-
-            async function getAllData() {
-                try {
-    
-                const keys = await AsyncStorage.getItem('syllabus');
-                const keys2 = await AsyncStorage.getItem('subtopic');
-                //console.log('syllabus:', keys);
-                console.log('subtopic:', keys2);
-            
-            } catch (e) {
-                console.error("Error fetching AsyncStorage data", e);
-            }
-        };
-        getAllData();
-         
-        }}  className=' bg-red-500 h-[50px] rounded-md w-[48%]  ml-[20px] flex items-center justify-center'>
-            <Text className='text-white text-center'>show All Data</Text>
-        </Pressable>
-        <Pressable onPress={()=>{
-
-        async function clearAllData() {
-        try {
-        await AsyncStorage.removeItem('syllabus');
-        await AsyncStorage.removeItem('subtopic');
-        setSyllabusarray([]);
-        setSubtopicArray([]);
-        console.log('All syllabus and subtopic data deleted');
-        } catch (e) {
-        console.error("Error clearing AsyncStorage data", e);
-        }
-        }
-        clearAllData();
-         
-        }}  className=' ml-[52%] bg-blue-500 h-[50px] rounded-md w-[48%] mt-4 flex items-center justify-center'>
-            <Text className='text-white text-center'>Delete All Data</Text>
-        </Pressable>
-
-
-
-
-
-            <View className="absolute mt-[190%] right-5 items-center z-5">
+            {/* Add subject button */}
+            {!showSubjectInput && (
                 <Pressable
-                    className="bg-blue-600 rounded-full h-[60px] w-[60px] shadow flex justify-center items-center "
-                    onPress={() => setmModalVisible(prev => !prev)}
+                    onPress={() => {
+                        // Toggle subject input
+                        if (showSubjectInput) {
+                            setShowSubjectInput(false);
+                            setSubjectInput('');
+                            setSelectedSubjectIdx(null);
+                        } else {
+                            setShowSubjectInput(true);
+                            setSubjectInput('');
+                            setSelectedSubjectIdx(null);
+                        }
+                    }}
+                    className="absolute bottom-28 right-6 border-blue-500 border-[3px] bg-gray-300 rounded-full h-16 w-16 flex justify-center items-center shadow-lg"
                 >
-                    <Text className="text-white font-bold text-center"><AntDesign name="plus" size={60}/></Text>
+                    <AntDesign name={showSubjectInput ? "close" : "plus"} size={36} />
                 </Pressable>
-               
-            </View>
-
-            </ScrollView>
-        
+            )}
+        </View>
     );
 };
 
-
-
-export default Syllabus;
+export default Timetable;
